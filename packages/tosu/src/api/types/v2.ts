@@ -14,6 +14,7 @@ export interface TosuAPi {
     profile: Profile;
     beatmap: Beatmap;
     play: Play;
+    keys: Keys;
     leaderboard: Leaderboard[];
     performance: Performance;
     resultsScreen: ResultsScreen;
@@ -398,23 +399,32 @@ export interface Combo2 {
     max: number;
 }
 
+export interface Keypress {
+    name: string;
+    isPressed: boolean;
+    count: number;
+    pressedAt: number | null;
+    releasedAt: number | null;
+}
+
 export interface TosuPreciseAnswer {
-    keys: KeyOverlay;
+    keys: Keys;
     hitErrors: number[];
     tourney: PreciseTourney[];
 }
 
 export interface PreciseTourney {
     ipcId: number;
-    keys: KeyOverlay;
+    keys: Keys;
     hitErrors: number[];
 }
 
-interface KeyOverlay {
+export interface Keys {
     k1: KeyOverlayButton;
     k2: KeyOverlayButton;
     m1: KeyOverlayButton;
     m2: KeyOverlayButton;
+    all: Keypress[];
 }
 
 interface KeyOverlayButton {

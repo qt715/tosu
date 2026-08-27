@@ -2,6 +2,7 @@ import type {
     ApiAnswerPrecise as ApiAnswer,
     PreciseTourney
 } from '@/api/types/v2';
+import { buildKeys } from '@/api/utils/buildKeys';
 import { InstanceManager } from '@/instances/manager';
 
 const buildTourneyData = (
@@ -25,28 +26,7 @@ const buildTourneyData = (
 
             return {
                 ipcId: instance.ipcId,
-                keys: {
-                    k1: {
-                        isPressed:
-                            gameplay.keyOverlay.at(0)?.isPressed ?? false,
-                        count: gameplay.keyOverlay.at(0)?.count ?? 0
-                    },
-                    k2: {
-                        isPressed:
-                            gameplay.keyOverlay.at(1)?.isPressed ?? false,
-                        count: gameplay.keyOverlay.at(1)?.count ?? 0
-                    },
-                    m1: {
-                        isPressed:
-                            gameplay.keyOverlay.at(2)?.isPressed ?? false,
-                        count: gameplay.keyOverlay.at(2)?.count ?? 0
-                    },
-                    m2: {
-                        isPressed:
-                            gameplay.keyOverlay.at(3)?.isPressed ?? false,
-                        count: gameplay.keyOverlay.at(3)?.count ?? 0
-                    }
-                },
+                keys: buildKeys(gameplay.keyOverlay, gameplay.keypresses),
                 hitErrors: gameplay.hitErrors
             };
         });
@@ -65,24 +45,7 @@ export const buildResult = (instanceManager: InstanceManager): ApiAnswer => {
     const { gameplay } = osuInstance.getServices(['gameplay']);
 
     return {
-        keys: {
-            k1: {
-                isPressed: gameplay.keyOverlay.at(0)?.isPressed ?? false,
-                count: gameplay.keyOverlay.at(0)?.count ?? 0
-            },
-            k2: {
-                isPressed: gameplay.keyOverlay.at(1)?.isPressed ?? false,
-                count: gameplay.keyOverlay.at(1)?.count ?? 0
-            },
-            m1: {
-                isPressed: gameplay.keyOverlay.at(2)?.isPressed ?? false,
-                count: gameplay.keyOverlay.at(2)?.count ?? 0
-            },
-            m2: {
-                isPressed: gameplay.keyOverlay.at(3)?.isPressed ?? false,
-                count: gameplay.keyOverlay.at(3)?.count ?? 0
-            }
-        },
+        keys: buildKeys(gameplay.keyOverlay, gameplay.keypresses),
         hitErrors: gameplay.hitErrors,
         tourney: buildTourneyData(instanceManager)
     };

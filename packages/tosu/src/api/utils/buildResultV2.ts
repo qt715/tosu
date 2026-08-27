@@ -27,6 +27,7 @@ import type {
     TourneyChatMessages,
     TourneyClients
 } from '@/api/types/v2';
+import { buildKeys } from '@/api/utils/buildKeys';
 import { LazerInstance } from '@/instances/lazerInstance';
 import { InstanceManager } from '@/instances/manager';
 import type { IUserProtected } from '@/memory/types';
@@ -145,6 +146,7 @@ export const buildResult = (instanceManager: InstanceManager): ApiAnswer => {
             playCount: 0 // need counting
         },
         rankedPlay: rankedPlay.info,
+        keys: buildKeys(gameplay.keyOverlay, gameplay.keypresses),
         settings: {
             interfaceVisible: global.showInterface,
             replayUIVisible: global.isReplayUiHidden === false,

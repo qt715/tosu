@@ -1,13 +1,14 @@
 import { ClientType, config, measureTime, wLogger } from '@tosu/common';
-import {
+import type {
     GradualDifficulty,
-    type ScoreInfoData
+    ScoreInfoData
 } from '@tosuapp/lazer-calculator-prebuilt';
 
-import { AbstractInstance } from '@/instances';
+import type { AbstractInstance } from '@/instances';
 import { AbstractState } from '@/states/index';
 import type {
     KeyOverlayButton,
+    KeypressButton,
     LeaderboardPlayer,
     Statistics
 } from '@/states/types';
@@ -81,6 +82,8 @@ export class Gameplay extends AbstractState {
     gradeCurrent: string;
     gradeExpected: string;
     keyOverlay: KeyOverlayButton[];
+    keypresses: KeypressButton[];
+    private keypressIdentityMode: number | undefined;
     isReplayUiHidden: boolean;
 
     isLeaderboardVisible: boolean = false;
@@ -135,6 +138,8 @@ export class Gameplay extends AbstractState {
 
         this.gradeExpected = this.gradeCurrent;
         this.keyOverlay = [];
+        this.keypresses = [];
+        this.keypressIdentityMode = undefined;
         this.isReplayUiHidden = false;
 
         this.previousPlayTime = 0;
@@ -173,6 +178,7 @@ export class Gameplay extends AbstractState {
     }
 
     resetKeyOverlay() {
+        this.keypressIdentityMode = undefined;
         if (this.isKeyOverlayDefaultState) {
             return;
         }
@@ -185,6 +191,12 @@ export class Gameplay extends AbstractState {
         this.keyOverlay.forEach((key) => {
             key.isPressed = false;
             key.count = 0;
+        });
+        this.keypresses.forEach((key) => {
+            key.isPressed = false;
+            key.count = 0;
+            key.pressedAt = null;
+            key.releasedAt = null;
         });
 
         this.isKeyOverlayDefaultState = true;
@@ -284,6 +296,11 @@ export class Gameplay extends AbstractState {
     @measureTime
     updateKeyOverlay() {
         try {
+            const global = this.game.get('global');
+            if (global === null) {
+                return 'not-ready';
+            }
+
             const result = this.game.memory.keyOverlay(this.mode);
             if (result instanceof Error) throw result;
             if (typeof result === 'string') {
@@ -304,7 +321,58 @@ export class Gameplay extends AbstractState {
                 }
             });
 
-            this.keyOverlay = result;
+            const identitiesMatch =
+                this.keypressIdentityMode === this.mode &&
+                result.length === this.keypresses.length &&
+                result.every(
+                    (key, index) => key.name === this.keypresses[index].name
+                );
+            const valuesMatch =
+                identitiesMatch &&
+                result.every((key, index) => {
+                    const previous = this.keypresses[index];
+                    return (
+                        key.isPressed === previous.isPressed &&
+                        key.count === previous.count
+                    );
+                });
+
+            if (!valuesMatch) {
+                this.keypresses = result.map((key, index) => {
+                    const previous = identitiesMatch
+                        ? this.keypresses[index]
+                        : undefined;
+                    let pressedAt = previous?.pressedAt ?? null;
+                    let releasedAt = previous?.releasedAt ?? null;
+
+                    if (previous === undefined) {
+                        pressedAt = key.isPressed ? global.playTime : null;
+                        releasedAt = null;
+                    } else if (previous.isPressed !== key.isPressed) {
+                        if (key.isPressed) {
+                            pressedAt = global.playTime;
+                        } else {
+                            releasedAt = global.playTime;
+                        }
+                    }
+
+                    return {
+                        ...key,
+                        pressedAt,
+                        releasedAt
+                    };
+                });
+                this.keypressIdentityMode = this.mode;
+
+                if (this.game.client === ClientType.lazer) {
+                    this.keyOverlay = result;
+                } else if (result.length < 4) {
+                    this.keyOverlay = [];
+                } else {
+                    const legacyLength = this.mode === 0 ? 4 : 3;
+                    this.keyOverlay = result.slice(0, legacyLength);
+                }
+            }
             this.isKeyOverlayDefaultState = false;
 
             const keysLine = result.map((key) => key.count).join(':');
@@ -325,7 +393,7 @@ export class Gameplay extends AbstractState {
                 ClientType[this.game.client],
                 this.game.pid,
                 `gameplay updateKeyOverlay`,
-                (exc as any).message
+                exc instanceof Error ? exc.message : String(exc)
             );
             wLogger.debug(
                 `%${ClientType[this.game.client]}%`,

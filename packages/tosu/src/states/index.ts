@@ -1,4 +1,4 @@
-import { AbstractInstance } from '@/instances';
+import type { AbstractInstance } from '@/instances';
 
 export abstract class AbstractState {
     game: AbstractInstance;

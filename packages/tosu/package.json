@@ -8,6 +8,7 @@
         "genver": "npx genversion -es src/_version.js",
         "ts:run": "cross-env NODE_ENV=development tsx",
         "ts:compile": "rolldown -c rolldown.config.mjs",
+        "test": "tsx --test src/api/utils/keys.test.ts src/states/gameplay.test.ts",
         "watch": "pnpm run genver && pnpm run ts:run watch.ts",
         "run:dev": "pnpm run genver && pnpm run ts:compile && node --enable-source-maps dist/index.js",
         "compile:win": "pnpm run genver && pnpm run ts:compile && pkg --output dist/tosu.exe --debug --config pkg.win.json --compress brotli dist/index.js && pnpm run ts:run src/postBuild.mts",

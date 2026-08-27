@@ -25,6 +25,10 @@ export interface KeyOverlayButton {
     isPressed: boolean;
     count: number;
 }
+export interface KeypressButton extends KeyOverlayButton {
+    pressedAt: number | null;
+    releasedAt: number | null;
+}
 
 export interface LeaderboardPlayer {
     userId: number;

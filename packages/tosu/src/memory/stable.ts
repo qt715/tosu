@@ -9,6 +9,7 @@ import { getContentType } from '@tosu/server';
 
 import { type OsuVersion } from '@/instances';
 import { AbstractMemory } from '@/memory';
+import { MAX_KEY_OVERLAY_BUTTONS, stableKeyName } from '@/memory/keyOverlay';
 import type {
     IAudioVelocityBase,
     IBindingValue,
@@ -33,7 +34,7 @@ import type {
 } from '@/memory/types';
 import { defaultStatistics } from '@/states/gameplay';
 import type { ITourneyManagerChatItem } from '@/states/tourney';
-import type { LeaderboardPlayer } from '@/states/types';
+import type { KeyOverlayButton, LeaderboardPlayer } from '@/states/types';
 import { Bindings, VirtualKeyCode } from '@/utils/bindings';
 import { calculateAccuracy } from '@/utils/calculators';
 import { netDateBinaryToDate } from '@/utils/converters';
@@ -640,74 +641,34 @@ export class StableMemory extends AbstractMemory<OsuPatternData> {
             if (rulesetAddr === 0) return 'rulesetAddr is zero';
 
             const keyOverlayPtr = this.process.readUInt(rulesetAddr + 0xac);
-            if (keyOverlayPtr === 0) {
-                if (mode === 3 || mode === 1) return '';
+            if (keyOverlayPtr === 0) return '';
 
-                return `keyOverlayPtr is zero [${keyOverlayPtr}] (${rulesetAddr}  -  ${address})`;
-            }
-
-            // [[Ruleset + 0xB0] + 0x10] + 0x4
             const keyOverlayArrayAddr = this.process.readInt(
                 this.process.readInt(keyOverlayPtr + 0x10) + 0x4
             );
-            if (keyOverlayArrayAddr === 0) return 'keyOverlayAddr[] is zero';
+            if (keyOverlayArrayAddr === 0) return '';
 
             const itemsSize = this.process.readInt(keyOverlayArrayAddr + 0x4);
-            if (itemsSize < 4) {
-                return [];
+            if (itemsSize < 0 || itemsSize > MAX_KEY_OVERLAY_BUTTONS) {
+                throw new Error(
+                    `Invalid stable key overlay count: ${itemsSize}`
+                );
             }
+            if (itemsSize === 0) return [];
 
-            const keyOverlay = [
-                {
-                    name: mode === 2 ? 'L' : 'K1',
-                    isPressed: Boolean(
-                        this.process.readByte(
-                            this.process.readInt(keyOverlayArrayAddr + 0x8) +
-                                0x1c
-                        )
-                    ),
-                    count: this.process.readInt(
-                        this.process.readInt(keyOverlayArrayAddr + 0x8) + 0x14
-                    )
-                },
-                {
-                    name: mode === 2 ? 'R' : 'K2',
-                    isPressed: Boolean(
-                        this.process.readByte(
-                            this.process.readInt(keyOverlayArrayAddr + 0xc) +
-                                0x1c
-                        )
-                    ),
-                    count: this.process.readInt(
-                        this.process.readInt(keyOverlayArrayAddr + 0xc) + 0x14
-                    )
-                },
-                {
-                    name: mode === 2 ? 'D' : 'M1',
-                    isPressed: Boolean(
-                        this.process.readByte(
-                            this.process.readInt(keyOverlayArrayAddr + 0x10) +
-                                0x1c
-                        )
-                    ),
-                    count: this.process.readInt(
-                        this.process.readInt(keyOverlayArrayAddr + 0x10) + 0x14
-                    )
+            const keyOverlay: KeyOverlayButton[] = [];
+            for (let index = 0; index < itemsSize; index++) {
+                const item = this.process.readInt(
+                    keyOverlayArrayAddr + 0x8 + index * 0x4
+                );
+                if (item === 0) {
+                    throw new Error(`Stable key overlay item ${index} is null`);
                 }
-            ];
 
-            if (mode === 0) {
                 keyOverlay.push({
-                    name: 'M2',
-                    isPressed: Boolean(
-                        this.process.readByte(
-                            this.process.readInt(keyOverlayArrayAddr + 0x14) +
-                                0x1c
-                        )
-                    ),
-                    count: this.process.readInt(
-                        this.process.readInt(keyOverlayArrayAddr + 0x14) + 0x14
-                    )
+                    name: stableKeyName(mode, index),
+                    isPressed: Boolean(this.process.readByte(item + 0x1c)),
+                    count: this.process.readInt(item + 0x14)
                 });
             }
 

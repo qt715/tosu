@@ -21,6 +21,7 @@ import path from 'path';
 import localOffsets from '@/assets/offsets.json';
 import { LazerInstance } from '@/instances/lazerInstance';
 import { AbstractMemory } from '@/memory';
+import { MAX_KEY_OVERLAY_BUTTONS, lazerKeyName } from '@/memory/keyOverlay';
 import type {
     IAudioVelocityBase,
     IGameplay,
@@ -70,11 +71,6 @@ import {
 type LazerPatternData = {
     scalingContainerTargetDrawSize: number;
 };
-
-interface KeyCounter {
-    isPressed: boolean;
-    count: number;
-}
 
 export interface Offsets {
     OsuVersion: string;
@@ -2168,23 +2164,6 @@ export class LazerMemory extends AbstractMemory<LazerPatternData> {
         );
     }
 
-    // FIXME: not finished
-    private readKeyTrigger(trigger: number): KeyCounter {
-        const activationCountBindable = this.process.readIntPtr(
-            trigger + 0x208
-        );
-        const activationCount = this.process.readInt(
-            activationCountBindable + 0x40
-        );
-
-        const isActive = this.process.readByte(trigger + 0x1f4) === 1;
-
-        return {
-            isPressed: isActive,
-            count: activationCount
-        };
-    }
-
     keyOverlay(): IKeyOverlay {
         try {
             if (this.isPlayerLoading) {
@@ -2217,17 +2196,21 @@ export class LazerMemory extends AbstractMemory<LazerPatternData> {
                 triggersBindable + 0x18
             );
 
-            const triggers = this.readListItems(triggerCollection);
-
+            const { size, items } = this.listItemsInfo(triggerCollection);
+            if (size < 0 || size > MAX_KEY_OVERLAY_BUTTONS) {
+                throw new Error(`Invalid lazer key overlay count: ${size}`);
+            }
+            const triggers = this.readItems(items, size);
             const keyCounters: KeyOverlayButton[] = [];
 
-            for (let i = 0; i < triggers.length; i++) {
-                const keyTrigger: KeyCounter = this.readKeyTrigger(triggers[i]);
+            for (let index = 0; index < triggers.length; index++) {
+                const trigger = triggers[index];
+                const countBindable = this.process.readIntPtr(trigger + 0x208);
 
                 keyCounters.push({
-                    name: `B${i + 1}`,
-                    isPressed: keyTrigger.isPressed,
-                    count: keyTrigger.count
+                    name: lazerKeyName(index),
+                    isPressed: this.process.readByte(trigger + 0x1f4) === 1,
+                    count: this.process.readInt(countBindable + 0x40)
                 });
             }
 
